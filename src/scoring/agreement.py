@@ -1,58 +1,68 @@
-"""Inter-rater agreement metrics (Cohen's kappa)."""
+"""Inter-provider agreement metrics."""
 
 from __future__ import annotations
 
 from collections import Counter
+from itertools import combinations
+
+from ..utils.logging import get_logger
+
+logger = get_logger("scoring.agreement")
 
 
 def cohens_kappa(labels_a: list[str], labels_b: list[str]) -> float:
-    """Compute Cohen's kappa between two sets of categorical labels.
+    """Compute Cohen's kappa between two label sequences.
 
     Args:
-        labels_a: Labels from rater/provider A.
-        labels_b: Labels from rater/provider B.
+        labels_a: Labels from rater A.
+        labels_b: Labels from rater B.
 
     Returns:
-        Cohen's kappa coefficient (-1.0 to 1.0).
+        Kappa statistic (-1.0 to 1.0). 1.0 = perfect agreement, 0.0 = chance.
     """
     if len(labels_a) != len(labels_b):
-        raise ValueError("Label lists must be the same length.")
+        raise ValueError(
+            f"Label sequences must have equal length: {len(labels_a)} != {len(labels_b)}"
+        )
+
     n = len(labels_a)
     if n == 0:
         return 0.0
 
-    categories = sorted(set(labels_a) | set(labels_b))
-    cat_idx = {c: i for i, c in enumerate(categories)}
-    k = len(categories)
-
-    # Build confusion matrix
-    matrix = [[0] * k for _ in range(k)]
-    for a, b in zip(labels_a, labels_b):
-        matrix[cat_idx[a]][cat_idx[b]] += 1
+    all_labels = sorted(set(labels_a) | set(labels_b))
+    counts_a = Counter(labels_a)
+    counts_b = Counter(labels_b)
 
     # Observed agreement
-    po = sum(matrix[i][i] for i in range(k)) / n
+    p_o = sum(1 for a, b in zip(labels_a, labels_b) if a == b) / n
 
-    # Expected agreement
-    row_sums = [sum(matrix[i]) for i in range(k)]
-    col_sums = [sum(matrix[j][i] for j in range(k)) for i in range(k)]
-    pe = sum(row_sums[i] * col_sums[i] for i in range(k)) / (n * n)
+    # Expected agreement by chance
+    p_e = sum((counts_a[label] / n) * (counts_b[label] / n) for label in all_labels)
 
-    if pe == 1.0:
+    if p_e == 1.0:
         return 1.0
 
-    return (po - pe) / (1.0 - pe)
+    kappa = (p_o - p_e) / (1 - p_e)
+    return kappa
 
 
 def multi_provider_agreement(
     provider_labels: dict[str, list[str]],
 ) -> dict[tuple[str, str], float]:
-    """Compute pairwise Cohen's kappa across multiple providers."""
-    providers = sorted(provider_labels.keys())
-    results: dict[tuple[str, str], float] = {}
+    """Compute pairwise Cohen's kappa across all providers.
 
-    for i, a in enumerate(providers):
-        for b in providers[i + 1 :]:
-            results[(a, b)] = cohens_kappa(provider_labels[a], provider_labels[b])
+    Args:
+        provider_labels: Mapping of provider name -> list of labels.
+
+    Returns:
+        Dict mapping (provider_a, provider_b) -> kappa score.
+    """
+    results: dict[tuple[str, str], float] = {}
+    providers = sorted(provider_labels.keys())
+
+    for a, b in combinations(providers, 2):
+        kappa = cohens_kappa(provider_labels[a], provider_labels[b])
+        results[(a, b)] = kappa
+        logger.info(f"agreement {a}_vs_{b} kappa={kappa:.3f}")
 
     return results

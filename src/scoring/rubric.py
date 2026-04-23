@@ -1,85 +1,106 @@
-"""Scoring rubric engine: load YAML rubric and compute per-dimension scores."""
+"""Rubric-based scoring engine for multi-dimensional evaluation."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from ..utils.logging import get_logger
+
+logger = get_logger("scoring.rubric")
+
 
 @dataclass
-class DimensionScore:
-    """Score for a single rubric dimension."""
+class RubricDimension:
+    """A single scoring dimension in the rubric."""
 
-    dimension: str
-    score: int  # 1-5
+    name: str
     weight: float
-    weighted_score: float
-    rationale: str = ""
+    description: str = ""
+    criteria: dict[int, str] = field(default_factory=dict)  # score -> description
 
 
 @dataclass
 class RubricResult:
-    """Complete rubric scoring result for one evaluation."""
+    """Result of rubric scoring."""
 
-    dimension_scores: list[DimensionScore]
-    total_weighted_score: float
-    max_possible: float
-    normalized_score: float  # 0.0 - 1.0
+    dimension_scores: dict[str, int]  # dimension name -> raw score (1-5)
+    weighted_scores: dict[str, float]  # dimension name -> weighted score
+    raw_total: float  # sum of weighted raw scores
+    normalized_score: float  # 0.0-1.0 normalized score
 
 
 class RubricEngine:
-    """Load a YAML rubric and score evaluation results."""
+    """Loads a YAML rubric and computes weighted multi-dimensional scores."""
 
     def __init__(self, rubric_path: str | Path) -> None:
-        self._rubric_path = Path(rubric_path)
-        with open(self._rubric_path) as f:
-            self._rubric = yaml.safe_load(f)
-        self._dimensions: dict[str, dict[str, Any]] = self._rubric.get("dimensions", {})
+        self._path = Path(rubric_path)
+        self._dimensions: dict[str, RubricDimension] = {}
+        self._load()
 
-    @property
-    def dimension_names(self) -> list[str]:
-        return list(self._dimensions.keys())
+    def _load(self) -> None:
+        with open(self._path) as f:
+            data = yaml.safe_load(f)
 
-    @property
-    def total_weight(self) -> float:
-        return sum(d["weight"] for d in self._dimensions.values())
+        for dim_data in data.get("dimensions", []):
+            dim = RubricDimension(
+                name=dim_data["name"],
+                weight=dim_data["weight"],
+                description=dim_data.get("description", ""),
+                criteria={
+                    int(k): v
+                    for k, v in dim_data.get("criteria", {}).items()
+                },
+            )
+            self._dimensions[dim.name] = dim
 
-    def score(
-        self, scores: dict[str, int], rationales: dict[str, str] | None = None
-    ) -> RubricResult:
-        """Score a set of dimension scores (1-5) against the rubric.
+        total_weight = sum(d.weight for d in self._dimensions.values())
+        if abs(total_weight - 1.0) > 0.01:
+            logger.warning(f"rubric weights sum to {total_weight:.2f}, expected 1.0")
+
+        logger.info(
+            f"rubric_loaded dimensions={len(self._dimensions)} "
+            f"path={self._path}"
+        )
+
+    def score(self, dimension_scores: dict[str, int]) -> RubricResult:
+        """Compute a weighted rubric score.
 
         Args:
-            scores: {dimension_name: score} where score is 1-5.
-            rationales: Optional {dimension_name: rationale_text}.
+            dimension_scores: Mapping of dimension name -> raw score (1-5).
+
+        Returns:
+            RubricResult with weighted and normalized scores.
         """
-        rationales = rationales or {}
-        dimension_scores: list[DimensionScore] = []
+        weighted: dict[str, float] = {}
+        raw_total = 0.0
+        max_possible = 0.0
 
-        for name, dim_config in self._dimensions.items():
-            raw = scores.get(name, 0)
-            if not 1 <= raw <= 5:
-                raise ValueError(f"Score for '{name}' must be 1-5, got {raw}")
-            weight = dim_config["weight"]
-            dimension_scores.append(
-                DimensionScore(
-                    dimension=name,
-                    score=raw,
-                    weight=weight,
-                    weighted_score=raw * weight,
-                    rationale=rationales.get(name, ""),
-                )
-            )
+        for dim_name, dim in self._dimensions.items():
+            raw = dimension_scores.get(dim_name, 1)  # default to 1 if missing
+            raw = max(1, min(5, raw))  # clamp 1-5
+            ws = raw * dim.weight
+            weighted[dim_name] = ws
+            raw_total += ws
+            max_possible += 5 * dim.weight
 
-        total = sum(ds.weighted_score for ds in dimension_scores)
-        max_possible = 5.0 * self.total_weight
+        normalized = raw_total / max_possible if max_possible > 0 else 0.0
+
+        logger.info(
+            f"rubric_scored normalized={normalized:.3f} "
+            f"dimensions={dimension_scores}"
+        )
 
         return RubricResult(
             dimension_scores=dimension_scores,
-            total_weighted_score=total,
-            max_possible=max_possible,
-            normalized_score=total / max_possible if max_possible > 0 else 0.0,
+            weighted_scores=weighted,
+            raw_total=raw_total,
+            normalized_score=normalized,
         )
+
+    @property
+    def dimensions(self) -> dict[str, RubricDimension]:
+        return dict(self._dimensions)
