@@ -7,6 +7,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+**English | [中文](README_zh.md)**
+
 ---
 
 ## Why This Exists
@@ -130,7 +132,7 @@ Test Suites (JSONL)  →  Providers (API adapters)  →  Scoring Engine  →  Re
 │   ├── scoring/
 │   │   ├── rubric.py               # Rubric loader + weighted scoring
 │   │   ├── metrics.py              # F1, ECE, handoff metrics
-│   │   └── agreement.py            # Inter-annotator agreement (Cohen's κ)
+│   │   └── agreement.py            # Inter-annotator agreement (Cohen’s κ)
 │   ├── taxonomy/
 │   │   ├── category_registry.py    # Canonical harm categories
 │   │   └── severity.py             # Severity level definitions
@@ -175,7 +177,8 @@ Test Suites (JSONL)  →  Providers (API adapters)  →  Scoring Engine  →  Re
 ├── outputs/                        # Generated reports (gitignored)
 ├── pyproject.toml                  # Package config + dependencies
 ├── LICENSE                         # MIT License
-└── README.md
+├── README.md                       # English
+└── README_zh.md                    # 中文
 ```
 
 ## Adding a Provider
