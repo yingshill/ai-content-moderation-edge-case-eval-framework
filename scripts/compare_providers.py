@@ -1,99 +1,66 @@
-"""Head-to-head provider comparison script."""
+"""CLI script to compare evaluation results across providers."""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 
 import click
-import yaml
+
+from src.utils.logging import setup_logging, get_logger
+
+logger = get_logger("scripts.compare_providers")
 
 
 @click.command()
-@click.option("--config", "-c", default="configs/eval_config.yaml")
-@click.option("--providers", "-p", required=True, help="Comma-separated provider names (e.g. openai,perspective).")
-@click.option("--suite", "-s", required=True, help="Path to test suite JSONL file or directory.")
-@click.option("--policy", default=None, help="Policy profile name.")
-@click.option("--output", "-o", default=None)
-def main(config: str, providers: str, suite: str, policy: str | None, output: str | None) -> None:
-    """Compare two or more providers head-to-head on the same test suite."""
-    from src.eval_runner import load_test_suite, run_eval
-    from scripts.run_eval import _build_providers
+@click.argument("results_file", type=click.Path(exists=True))
+@click.option("--metric", "-m", default="macro_f1", help="Metric to rank by.")
+@click.option("--log-level", default="INFO", help="Logging level.")
+def main(results_file: str, metric: str, log_level: str) -> None:
+    """Compare providers from an evaluation results JSON file."""
+    setup_logging(level=log_level)
 
-    with open(config) as f:
-        eval_config = yaml.safe_load(f)
+    with open(results_file) as f:
+        data = json.load(f)
 
-    requested = {p.strip() for p in providers.split(",")}
-    all_providers = _build_providers(eval_config)
-    selected = [p for p in all_providers if p.provider_name() in requested]
-
-    if len(selected) < 2:
-        click.echo(f"Error: Need at least 2 providers. Found: {[p.provider_name() for p in selected]}", err=True)
+    providers = data.get("providers", {})
+    if not providers:
+        click.echo("No provider results found.", err=True)
         sys.exit(1)
 
-    test_cases = load_test_suite(suite)
-    click.echo(f"Comparing {', '.join(p.provider_name() for p in selected)} on {len(test_cases)} cases")
-
-    summary = asyncio.run(run_eval(selected, test_cases, policy))
-
-    # Print comparison table
-    click.echo("\n" + "=" * 70)
-    click.echo(f"{'Metric':<30} ", nl=False)
-    for name in summary.provider_results:
-        click.echo(f"{name:<20}", nl=False)
+    click.echo(f"\n{'='*60}")
+    click.echo(f"Provider Comparison - {data.get('run_id', 'unknown')}")
+    click.echo(f"{'='*60}")
+    click.echo(f"Test cases: {data.get('n_test_cases', 'N/A')}")
+    click.echo(f"Suite: {data.get('suite', 'N/A')}")
+    click.echo(f"Policy: {data.get('policy', 'none')}")
     click.echo()
-    click.echo("-" * 70)
 
-    for name in summary.provider_results:
-        cm = summary.classification_metrics.get(name)
-        if cm:
-            click.echo(f"{'Macro F1':<30} {cm.macro_f1:<20.3f}")
-            break
+    header = f"{'Provider':<35} {'Macro F1':>9} {'ECE':>7} {'Action':>8} {'Rubric':>8} {'Handoff':>8}"
+    click.echo(header)
+    click.echo("-" * len(header))
 
-    # More detailed comparison
-    for metric_name in ["Macro F1", "Micro F1", "Calibration Error", "Handoff Precision", "Handoff Recall"]:
-        click.echo(f"{metric_name:<30} ", nl=False)
-        for name in summary.provider_results:
-            cm = summary.classification_metrics.get(name)
-            hm = summary.handoff_metrics.get(name)
-            val = None
-            if metric_name == "Macro F1" and cm:
-                val = cm.macro_f1
-            elif metric_name == "Micro F1" and cm:
-                val = cm.micro_f1
-            elif metric_name == "Calibration Error":
-                val = summary.calibration_errors.get(name)
-            elif metric_name == "Handoff Precision" and hm:
-                val = hm.trigger_precision
-            elif metric_name == "Handoff Recall" and hm:
-                val = hm.trigger_recall
-            click.echo(f"{val:<20.3f}" if val is not None else f"{'N/A':<20}", nl=False)
-        click.echo()
+    ranked = sorted(
+        providers.items(),
+        key=lambda x: x[1].get(metric) or 0,
+        reverse=True,
+    )
 
-    if summary.agreement_scores:
-        click.echo(f"\nInter-provider Agreement (Cohen's Kappa):")
-        for (a, b), kappa in summary.agreement_scores.items():
-            click.echo(f"  {a} vs {b}: {kappa:.3f}")
+    for name, pdata in ranked:
+        f1 = f"{pdata['macro_f1']:.3f}" if pdata.get("macro_f1") is not None else "N/A"
+        ece = f"{pdata['calibration_error']:.3f}" if pdata.get("calibration_error") is not None else "N/A"
+        action = f"{pdata['action_accuracy']:.1%}" if pdata.get("action_accuracy") is not None else "N/A"
+        rubric = f"{pdata['rubric_score']:.3f}" if pdata.get("rubric_score") is not None else "N/A"
+        handoff = f"{pdata['handoff_trigger_rate']:.1%}" if pdata.get("handoff_trigger_rate") is not None else "N/A"
+        click.echo(f"{name:<35} {f1:>9} {ece:>7} {action:>8} {rubric:>8} {handoff:>8}")
 
-    if output:
-        Path(output).parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w") as f:
-            json.dump({
-                "providers": list(summary.provider_results.keys()),
-                "n_cases": len(test_cases),
-                "metrics": {
-                    name: {
-                        "macro_f1": summary.classification_metrics[name].macro_f1 if name in summary.classification_metrics else None,
-                        "calibration_error": summary.calibration_errors.get(name),
-                    }
-                    for name in summary.provider_results
-                },
-                "agreement": {f"{a}_vs_{b}": k for (a, b), k in summary.agreement_scores.items()},
-            }, f, indent=2)
-        click.echo(f"\nResults saved to {output}")
+    agreement = data.get("agreement", {})
+    if agreement:
+        click.echo(f"\nInter-Provider Agreement (Cohen's Kappa):")
+        for pair, kappa in sorted(agreement.items()):
+            click.echo(f"  {pair}: {kappa:.3f}")
+
+    click.echo()
 
 
 if __name__ == "__main__":
