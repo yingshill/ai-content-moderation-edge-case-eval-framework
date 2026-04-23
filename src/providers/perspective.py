@@ -8,6 +8,9 @@ from typing import Any
 import httpx
 
 from .base import ModerationProvider, ModerationRequest, ModerationResult
+from ..utils.logging import get_logger
+
+logger = get_logger("providers.perspective")
 
 _ATTR_MAP: dict[str, str] = {
     "TOXICITY": "toxicity",
@@ -36,10 +39,15 @@ class PerspectiveProvider(ModerationProvider):
         self,
         api_key: str | None = None,
         attributes: list[str] | None = None,
+        rate_limit_rpm: int = 60,
+        max_retries: int = 3,
+        backoff_base: float = 2.0,
     ) -> None:
+        super().__init__(rate_limit_rpm=rate_limit_rpm, max_retries=max_retries, backoff_base=backoff_base)
         self._api_key = api_key or os.environ.get("PERSPECTIVE_API_KEY", "")
         self._attributes = attributes or _DEFAULT_ATTRIBUTES
         self._client = httpx.AsyncClient(timeout=30.0)
+        logger.info(f"initialized attributes={self._attributes}")
 
     def provider_name(self) -> str:
         return "perspective"
@@ -93,6 +101,10 @@ class PerspectiveProvider(ModerationProvider):
             raw_response=data,
             latency_ms=0.0,
         )
+
+    async def close(self) -> None:
+        """Close the underlying HTTP client."""
+        await self._client.aclose()
 
     @staticmethod
     def _score_to_severity(score: float) -> str:

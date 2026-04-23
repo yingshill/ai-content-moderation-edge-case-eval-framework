@@ -20,15 +20,26 @@ def _build_providers(config: dict) -> list:
 
     providers = []
     provider_configs = config.get("providers", {})
+    retry_config = config.get("evaluation", {}).get("retry", {})
+    max_retries = retry_config.get("max_retries", 3)
+    backoff_base = retry_config.get("backoff_base", 2.0)
 
     if provider_configs.get("openai", {}).get("enabled"):
+        cfg = provider_configs["openai"]
         providers.append(OpenAIModerationProvider(
-            model=provider_configs["openai"].get("model", "omni-moderation-latest"),
+            model=cfg.get("model", "omni-moderation-latest"),
+            rate_limit_rpm=cfg.get("rate_limit_rpm", 60),
+            max_retries=max_retries,
+            backoff_base=backoff_base,
         ))
 
     if provider_configs.get("perspective", {}).get("enabled"):
+        cfg = provider_configs["perspective"]
         providers.append(PerspectiveProvider(
-            attributes=provider_configs["perspective"].get("attributes"),
+            attributes=cfg.get("attributes"),
+            rate_limit_rpm=cfg.get("rate_limit_rpm", 60),
+            max_retries=max_retries,
+            backoff_base=backoff_base,
         ))
 
     if provider_configs.get("llm_judge_claude", {}).get("enabled"):
@@ -36,6 +47,9 @@ def _build_providers(config: dict) -> list:
         providers.append(LLMJudgeProvider(
             backend=cfg.get("backend", "anthropic"),
             model=cfg.get("model"),
+            rate_limit_rpm=cfg.get("rate_limit_rpm", 30),
+            max_retries=max_retries,
+            backoff_base=backoff_base,
         ))
 
     if provider_configs.get("llm_judge_gpt4o", {}).get("enabled"):
@@ -43,6 +57,9 @@ def _build_providers(config: dict) -> list:
         providers.append(LLMJudgeProvider(
             backend=cfg.get("backend", "openai"),
             model=cfg.get("model"),
+            rate_limit_rpm=cfg.get("rate_limit_rpm", 30),
+            max_retries=max_retries,
+            backoff_base=backoff_base,
         ))
 
     return providers
@@ -53,9 +70,14 @@ def _build_providers(config: dict) -> list:
 @click.option("--suite", "-s", required=True, help="Path to test suite (JSONL file or directory).")
 @click.option("--policy", "-p", default=None, help="Policy profile name (e.g. tiktok, rednote).")
 @click.option("--output", "-o", default=None, help="Output file path (default: outputs/eval_<timestamp>.json).")
-def main(config: str, suite: str, policy: str | None, output: str | None) -> None:
+@click.option("--log-level", default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR).")
+def main(config: str, suite: str, policy: str | None, output: str | None, log_level: str) -> None:
     """Run AI moderation evaluation."""
     from src.eval_runner import load_test_suite, run_eval
+    from src.utils.logging import setup_logging
+
+    # Setup logging
+    setup_logging(level=log_level)
 
     # Load config
     with open(config) as f:
@@ -75,8 +97,13 @@ def main(config: str, suite: str, policy: str | None, output: str | None) -> Non
 
     # Run evaluation
     click.echo("Running evaluation...")
-    max_concurrent = eval_config.get("evaluation", {}).get("max_concurrent", 5)
-    summary = asyncio.run(run_eval(providers, test_cases, policy, max_concurrent))
+    eval_settings = eval_config.get("evaluation", {})
+    max_concurrent = eval_settings.get("max_concurrent", 5)
+    rubric_path = eval_settings.get("rubric", "rubrics/default.yaml")
+
+    summary = asyncio.run(
+        run_eval(providers, test_cases, policy, max_concurrent, rubric_path)
+    )
 
     # Output results
     if output is None:
@@ -103,22 +130,31 @@ def main(config: str, suite: str, policy: str | None, output: str | None) -> Non
             "macro_f1": cm.macro_f1 if cm else None,
             "micro_f1": cm.micro_f1 if cm else None,
             "calibration_error": summary.calibration_errors.get(name),
+            "action_accuracy": summary.action_accuracy.get(name),
+            "rubric_score": summary.rubric_scores.get(name),
             "handoff_trigger_rate": hm.trigger_rate if hm else None,
             "handoff_precision": hm.trigger_precision if hm else None,
             "handoff_recall": hm.trigger_recall if hm else None,
+            "handoff_context_completeness": hm.context_completeness if hm else None,
             "per_category": cm.per_category if cm else {},
         }
+
+    data["agreement"] = {
+        f"{a}_vs_{b}": kappa for (a, b), kappa in summary.agreement_scores.items()
+    }
 
     with open(output, "w") as f:
         json.dump(results_data, f, indent=2, default=str)
 
     click.echo(f"\nResults saved to {output}")
     click.echo("\n--- Summary ---")
-    for name, data in results_data["providers"].items():
+    for name, pdata in results_data["providers"].items():
         click.echo(f"\n{name}:")
-        click.echo(f"  Macro F1: {data['macro_f1']:.3f}" if data["macro_f1"] else "  Macro F1: N/A")
-        click.echo(f"  Calibration Error: {data['calibration_error']:.3f}" if data["calibration_error"] else "  ECE: N/A")
-        click.echo(f"  Handoff Rate: {data['handoff_trigger_rate']:.1%}" if data["handoff_trigger_rate"] is not None else "  Handoff Rate: N/A")
+        click.echo(f"  Macro F1: {pdata['macro_f1']:.3f}" if pdata["macro_f1"] else "  Macro F1: N/A")
+        click.echo(f"  Calibration Error: {pdata['calibration_error']:.3f}" if pdata["calibration_error"] else "  ECE: N/A")
+        click.echo(f"  Action Accuracy: {pdata['action_accuracy']:.1%}" if pdata["action_accuracy"] is not None else "  Action Accuracy: N/A")
+        click.echo(f"  Rubric Score: {pdata['rubric_score']:.3f}" if pdata["rubric_score"] is not None else "  Rubric Score: N/A")
+        click.echo(f"  Handoff Rate: {pdata['handoff_trigger_rate']:.1%}" if pdata["handoff_trigger_rate"] is not None else "  Handoff Rate: N/A")
 
 
 if __name__ == "__main__":

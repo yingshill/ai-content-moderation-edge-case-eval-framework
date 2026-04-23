@@ -65,6 +65,12 @@ HARM_CATEGORIES: dict[str, HarmCategory] = {
         description="Unsolicited commercial or deceptive promotional content.",
         examples=("undisclosed ads", "engagement bait", "scams"),
     ),
+    "dangerous_activities": HarmCategory(
+        id="dangerous_activities",
+        name="Dangerous Activities",
+        description="Content promoting illegal or dangerous activities such as customs evasion, drug manufacturing, or weapons creation.",
+        examples=("customs evasion instructions", "drug synthesis guides", "weapons manufacturing"),
+    ),
     "toxicity": HarmCategory(
         id="toxicity",
         name="Toxicity",
@@ -79,7 +85,15 @@ HARM_CATEGORIES: dict[str, HarmCategory] = {
     ),
 }
 
+# Validate: all IDs referenced in test suites must be present here
+VALID_CATEGORIES = frozenset(HARM_CATEGORIES.keys()) | {None}
+
 
 def get_category(category_id: str) -> HarmCategory | None:
     """Look up a harm category by ID."""
     return HARM_CATEGORIES.get(category_id)
+
+
+def validate_category(category_id: str | None) -> bool:
+    """Check if a category ID is valid (including None for benign)."""
+    return category_id in VALID_CATEGORIES

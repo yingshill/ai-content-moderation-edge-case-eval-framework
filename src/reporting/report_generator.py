@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.eval_runner import EvalRunSummary
+    from ..eval_runner import EvalRunSummary
 
 
 def generate_markdown_report(summary: EvalRunSummary, output_path: str | Path) -> None:
@@ -25,6 +25,8 @@ def generate_markdown_report(summary: EvalRunSummary, output_path: str | Path) -
         cm = summary.classification_metrics.get(name)
         hm = summary.handoff_metrics.get(name)
         ece = summary.calibration_errors.get(name, 0.0)
+        rubric = summary.rubric_scores.get(name)
+        action_acc = summary.action_accuracy.get(name)
 
         lines.append(f"## Provider: {name}")
         lines.append(f"")
@@ -35,6 +37,10 @@ def generate_markdown_report(summary: EvalRunSummary, output_path: str | Path) -
             lines.append(f"| Macro F1 | {cm.macro_f1:.3f} |")
             lines.append(f"| Micro F1 | {cm.micro_f1:.3f} |")
         lines.append(f"| Calibration Error (ECE) | {ece:.3f} |")
+        if action_acc is not None:
+            lines.append(f"| Action Accuracy | {action_acc:.1%} |")
+        if rubric is not None:
+            lines.append(f"| **Rubric Score (5-dim)** | **{rubric:.3f}** |")
         if hm:
             lines.append(f"| Handoff Trigger Rate | {hm.trigger_rate:.1%} |")
             lines.append(f"| Handoff Precision | {hm.trigger_precision:.3f} |")
@@ -82,6 +88,8 @@ def generate_json_report(summary: EvalRunSummary, output_path: str | Path) -> No
             "classification": asdict(cm) if cm else None,
             "handoff": asdict(hm) if hm else None,
             "calibration_error": summary.calibration_errors.get(name),
+            "action_accuracy": summary.action_accuracy.get(name),
+            "rubric_score": summary.rubric_scores.get(name),
         }
 
     data["agreement"] = {

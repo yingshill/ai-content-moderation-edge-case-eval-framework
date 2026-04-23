@@ -7,6 +7,9 @@ import os
 from typing import Any
 
 from .base import ModerationProvider, ModerationRequest, ModerationResult
+from ..utils.logging import get_logger
+
+logger = get_logger("providers.llm_judge")
 
 _SYSTEM_PROMPT = """You are an expert content moderation evaluator. Analyze the given content and return a JSON object with exactly these fields:
 
@@ -18,7 +21,7 @@ _SYSTEM_PROMPT = """You are an expert content moderation evaluator. Analyze the 
   "explanation": "<brief rationale citing specific content elements>"
 }
 
-Harm categories: harassment, hate_speech, violence, self_harm, sexual_content, csam, misinformation, spam, toxicity, profanity, other.
+Harm categories: harassment, hate_speech, violence, self_harm, sexual_content, csam, misinformation, spam, dangerous_activities, toxicity, profanity, other.
 
 Consider:
 - Cultural and linguistic context
@@ -38,7 +41,11 @@ class LLMJudgeProvider(ModerationProvider):
         backend: str = "anthropic",  # "anthropic" or "openai"
         model: str | None = None,
         api_key: str | None = None,
+        rate_limit_rpm: int = 30,
+        max_retries: int = 3,
+        backoff_base: float = 2.0,
     ) -> None:
+        super().__init__(rate_limit_rpm=rate_limit_rpm, max_retries=max_retries, backoff_base=backoff_base)
         self._backend = backend
         if backend == "anthropic":
             self._model = model or "claude-sonnet-4-20250514"
@@ -46,6 +53,11 @@ class LLMJudgeProvider(ModerationProvider):
         else:
             self._model = model or "gpt-4o"
             self._api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+
+        # Lazily initialized clients (one per provider instance)
+        self._anthropic_client: Any = None
+        self._openai_client: Any = None
+        logger.info(f"initialized backend={self._backend} model={self._model}")
 
     def provider_name(self) -> str:
         return f"llm_judge_{self._backend}_{self._model}"
@@ -91,10 +103,11 @@ class LLMJudgeProvider(ModerationProvider):
         return "\n".join(parts)
 
     async def _call_anthropic(self, user_msg: str) -> str:
-        import anthropic
+        if self._anthropic_client is None:
+            import anthropic
+            self._anthropic_client = anthropic.AsyncAnthropic(api_key=self._api_key)
 
-        client = anthropic.AsyncAnthropic(api_key=self._api_key)
-        message = await client.messages.create(
+        message = await self._anthropic_client.messages.create(
             model=self._model,
             max_tokens=512,
             system=_SYSTEM_PROMPT,
@@ -103,10 +116,11 @@ class LLMJudgeProvider(ModerationProvider):
         return message.content[0].text
 
     async def _call_openai(self, user_msg: str) -> str:
-        from openai import AsyncOpenAI
+        if self._openai_client is None:
+            from openai import AsyncOpenAI
+            self._openai_client = AsyncOpenAI(api_key=self._api_key)
 
-        client = AsyncOpenAI(api_key=self._api_key)
-        response = await client.chat.completions.create(
+        response = await self._openai_client.chat.completions.create(
             model=self._model,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
@@ -117,6 +131,15 @@ class LLMJudgeProvider(ModerationProvider):
         )
         return response.choices[0].message.content or ""
 
+    async def close(self) -> None:
+        """Clean up LLM client resources."""
+        if self._anthropic_client is not None:
+            await self._anthropic_client.close()
+            self._anthropic_client = None
+        if self._openai_client is not None:
+            await self._openai_client.close()
+            self._openai_client = None
+
     @staticmethod
     def _parse_response(raw_text: str) -> dict[str, Any]:
         text = raw_text.strip()
@@ -125,6 +148,7 @@ class LLMJudgeProvider(ModerationProvider):
         try:
             return json.loads(text)
         except json.JSONDecodeError:
+            logger.warning(f"parse_failed raw_length={len(raw_text)}")
             return {
                 "harm_category": None,
                 "severity": "benign",
