@@ -1,0 +1,22 @@
+# Human-AI handoff policy configuration
+
+handoff_triggers:
+  confidence_threshold: 0.7      # escalate if confidence below this
+  severity_escalation:
+    - critical                    # always escalate critical severity
+  annotator_disagreement: 0.5    # escalate if ground truth agreement < this
+  repeat_offender: true          # escalate if author has prior violations
+
+handoff_context_requirements:
+  - content_snippet
+  - harm_category_prediction
+  - confidence_score
+  - similar_past_decisions
+  - recommended_action
+  - policy_reference
+
+evaluation_criteria:
+  trigger_precision: "% of handoffs that genuinely needed human review"
+  trigger_recall: "% of cases needing human review that were escalated"
+  context_completeness: "% of required context fields populated"
+  reviewer_time_saved: "estimated seconds saved vs reviewing from scratch"

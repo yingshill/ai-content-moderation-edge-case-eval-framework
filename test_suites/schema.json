@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Edge Case Test Case",
+  "description": "Schema for a single test case in the moderation eval framework.",
+  "type": "object",
+  "required": ["id", "content", "language", "ground_truth", "metadata"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+-[0-9]+$" },
+    "content": { "type": "string", "minLength": 1 },
+    "language": { "type": "string", "enum": ["en", "zh", "mixed"] },
+    "context": {
+      "type": "object",
+      "properties": {
+        "platform_type": { "type": "string" },
+        "thread_context": { "type": "string" },
+        "author_history": { "type": "string" },
+        "media_type": { "type": "string", "enum": ["text", "image_caption", "video_caption", "audio_transcript", "comment"] }
+      }
+    },
+    "ground_truth": {
+      "type": "object",
+      "required": ["harm_category", "severity", "expected_action"],
+      "properties": {
+        "harm_category": { "type": ["string", "null"] },
+        "severity": { "type": "string", "enum": ["benign", "borderline", "severe", "critical"] },
+        "expected_action": { "type": "string", "enum": ["allow", "flag_for_review", "remove", "remove_and_escalate"] },
+        "rationale": { "type": "string" },
+        "annotator_agreement": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["edge_case_type"],
+      "properties": {
+        "edge_case_type": { "type": "string" },
+        "cultural_context": { "type": "string" },
+        "requires_thread_context": { "type": "boolean" },
+        "platform_specific": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["easy", "medium", "hard", "adversarial"] }
+      }
+    }
+  }
+}

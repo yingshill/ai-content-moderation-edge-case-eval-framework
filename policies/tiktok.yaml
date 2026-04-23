@@ -1,0 +1,53 @@
+# TikTok Community Guidelines policy profile
+# Maps TikTok-specific policy categories to universal harm taxonomy
+
+platform: tiktok
+version: "2024.1"
+policy_url: "https://www.tiktok.com/community-guidelines"
+last_updated: "2024-12-01"
+
+categories:
+  hate_speech:
+    maps_to: hate_speech
+    policy_action: remove
+    notes: "Includes attacks on protected attributes. Reclaimed slurs may be context-dependent."
+
+  harassment_and_bullying:
+    maps_to: harassment
+    policy_action: remove
+    notes: "Includes duet/stitch recontextualization that targets individuals."
+    platform_specific_context:
+      - "duet_context: re-dueting someone's content to mock them"
+      - "stitch_context: stitching to add harassing commentary"
+
+  violent_content:
+    maps_to: violence
+    policy_action: remove
+    severity_override: severe
+    notes: "Exception for newsworthy content with context labels."
+
+  minor_safety:
+    maps_to: csam
+    policy_action: remove_and_escalate
+    severity_override: critical
+    notes: "Zero tolerance. Includes suggestive content involving minors."
+
+  integrity_and_authenticity:
+    maps_to: misinformation
+    policy_action: flag_for_review
+    notes: "Includes AI-generated content without disclosure labels."
+
+  creator_fund_spam:
+    maps_to: spam
+    policy_action: flag_for_review
+    notes: "Monetization-driven policy gaming, engagement bait for Creator Fund."
+    platform_specific_context:
+      - "creator_fund: content optimized purely for watch time metrics"
+      - "engagement_bait: misleading thumbnails or captions"
+
+  audio_meme_misuse:
+    maps_to: harassment
+    policy_action: flag_for_review
+    notes: "Trending audio used with ironic/subversive meaning that may constitute hate."
+    platform_specific_context:
+      - "audio_context: original audio meaning vs current usage context"

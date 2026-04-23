@@ -1,0 +1,50 @@
+# RedNote (Xiaohongshu) Community Guidelines policy profile
+# Maps RedNote-specific policy categories to universal harm taxonomy
+
+platform: rednote
+version: "2024.1"
+policy_url: "https://www.xiaohongshu.com/protocols/community"
+last_updated: "2024-12-01"
+
+categories:
+  zhongcao_vs_ad:
+    maps_to: spam
+    policy_action: flag_for_review
+    notes: "Distinguishing genuine product sharing (种草) from undisclosed paid promotion."
+    platform_specific_context:
+      - "zhongcao: authentic product recommendation culture on RedNote"
+      - "undisclosed_ad: paid promotion without proper disclosure labels"
+      - "gray_zone: gifted products without formal sponsorship"
+
+  daigou_gray_zone:
+    maps_to: spam
+    policy_action: flag_for_review
+    notes: "Gray market purchasing agent (代购) content — legal but policy-ambiguous."
+    platform_specific_context:
+      - "daigou: personal shopping service for overseas products"
+      - "customs_evasion: content suggesting avoiding import duties"
+      - "counterfeit_risk: luxury goods without provenance"
+
+  medical_beauty:
+    maps_to: misinformation
+    policy_action: flag_for_review
+    severity_override: borderline
+    notes: "Medical beauty (医美) promotion with health claims — China's strict ad regulations."
+    platform_specific_context:
+      - "medical_claims: before/after photos implying guaranteed results"
+      - "unqualified_practitioners: promoting unlicensed clinics"
+      - "regulatory_boundary: content that crosses into medical advertising"
+
+  hate_speech:
+    maps_to: hate_speech
+    policy_action: remove
+    notes: "Includes regional discrimination (地域歧视) common in Chinese social media."
+
+  violence:
+    maps_to: violence
+    policy_action: remove
+
+  minor_safety:
+    maps_to: csam
+    policy_action: remove_and_escalate
+    severity_override: critical

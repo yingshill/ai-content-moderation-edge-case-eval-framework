@@ -1,0 +1,49 @@
+# Evaluation configuration
+# Copy to configs/eval_config.local.yaml and fill in API keys
+
+providers:
+  openai:
+    enabled: true
+    model: "omni-moderation-latest"
+    api_key: "${OPENAI_API_KEY}"  # use env var
+    rate_limit_rpm: 60
+
+  perspective:
+    enabled: true
+    api_key: "${PERSPECTIVE_API_KEY}"
+    attributes:
+      - TOXICITY
+      - SEVERE_TOXICITY
+      - IDENTITY_ATTACK
+      - INSULT
+      - PROFANITY
+      - THREAT
+    rate_limit_rpm: 60
+
+  llm_judge_claude:
+    enabled: true
+    backend: anthropic
+    model: "claude-sonnet-4-20250514"
+    api_key: "${ANTHROPIC_API_KEY}"
+    rate_limit_rpm: 30
+
+  llm_judge_gpt4o:
+    enabled: false
+    backend: openai
+    model: "gpt-4o"
+    api_key: "${OPENAI_API_KEY}"
+    rate_limit_rpm: 30
+
+evaluation:
+  rubric: "rubrics/default.yaml"
+  default_policy: null  # or "tiktok", "rednote"
+  languages: ["en", "zh"]
+  max_concurrent: 5
+  retry:
+    max_retries: 3
+    backoff_base: 2.0
+
+output:
+  dir: "outputs"
+  formats: ["json", "markdown"]
+  include_raw_responses: false
