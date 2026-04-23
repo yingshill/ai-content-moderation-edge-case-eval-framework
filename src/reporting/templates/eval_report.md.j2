@@ -1,0 +1,46 @@
+# Evaluation Report:  run_id 
+
+**Generated:**  timestamp 
+**Config:**  config_path 
+**Test Suite:**  suite_path 
+**Policy:**  policy or 'none' 
+**Total Test Cases:**  n_test_cases 
+
+---
+
+{% for provider_name, provider_data in providers.items() %}
+## Provider:  provider_name 
+
+### Overall Metrics
+
+| Metric | Value |
+|--------|-------|
+| Test Cases |  provider_data.n_results  |
+| Macro F1 |  '%.3f' % provider_data.macro_f1 if provider_data.macro_f1 is not none else 'N/A'  |
+| Micro F1 |  '%.3f' % provider_data.micro_f1 if provider_data.micro_f1 is not none else 'N/A'  |
+| Calibration Error (ECE) |  '%.3f' % provider_data.calibration_error if provider_data.calibration_error is not none else 'N/A'  |
+| Handoff Trigger Rate |  '%.1%%' % (provider_data.handoff_trigger_rate * 100) if provider_data.handoff_trigger_rate is not none else 'N/A'  |
+| Handoff Precision |  '%.3f' % provider_data.handoff_precision if provider_data.handoff_precision is not none else 'N/A'  |
+| Handoff Recall |  '%.3f' % provider_data.handoff_recall if provider_data.handoff_recall is not none else 'N/A'  |
+
+{% if provider_data.per_category %}
+### Per-Category Breakdown
+
+| Category | Precision | Recall | F1 | Support |
+|----------|-----------|--------|-----|--------|
+{% for cat, m in provider_data.per_category | dictsort %}
+|  cat  |  '%.3f' % m.precision  |  '%.3f' % m.recall  |  '%.3f' % m.f1  |  m.support  |
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+{% if agreement %}
+## Inter-Provider Agreement
+
+| Provider A | Provider B | Cohen's Kappa |
+|------------|------------|---------------|
+{% for pair, kappa in agreement.items() %}
+|  pair.split('_vs_')[0]  |  pair.split('_vs_')[1]  |  '%.3f' % kappa  |
+{% endfor %}
+{% endif %}
