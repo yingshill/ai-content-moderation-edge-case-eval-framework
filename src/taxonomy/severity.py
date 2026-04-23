@@ -1,59 +1,31 @@
-"""Severity level definitions."""
+"""Severity level definitions and utilities."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import IntEnum
+
+from ..utils.logging import get_logger
+
+logger = get_logger("taxonomy.severity")
 
 
 class Severity(IntEnum):
-    """Ordered severity levels for content moderation."""
-
     BENIGN = 0
     BORDERLINE = 1
     SEVERE = 2
     CRITICAL = 3
 
+    @classmethod
+    def from_string(cls, value: str) -> Severity:
+        try:
+            return cls[value.upper()]
+        except KeyError:
+            valid = [s.name.lower() for s in cls]
+            raise ValueError(f"Invalid severity {value!r}. Valid: {valid}") from None
 
-@dataclass(frozen=True)
-class SeverityLevel:
-    severity: Severity
-    label: str
-    description: str
-    expected_action: str
-
-
-SEVERITY_LEVELS: dict[str, SeverityLevel] = {
-    "benign": SeverityLevel(
-        severity=Severity.BENIGN,
-        label="Benign",
-        description="Content does not violate any policies.",
-        expected_action="allow",
-    ),
-    "borderline": SeverityLevel(
-        severity=Severity.BORDERLINE,
-        label="Borderline",
-        description="Content is ambiguous; reasonable reviewers may disagree.",
-        expected_action="flag_for_review",
-    ),
-    "severe": SeverityLevel(
-        severity=Severity.SEVERE,
-        label="Severe",
-        description="Content clearly violates policies.",
-        expected_action="remove",
-    ),
-    "critical": SeverityLevel(
-        severity=Severity.CRITICAL,
-        label="Critical",
-        description="Content poses immediate safety risk (CSAM, imminent violence, etc).",
-        expected_action="remove_and_escalate",
-    ),
-}
+    def to_string(self) -> str:
+        return self.name.lower()
 
 
-def parse_severity(s: str) -> Severity:
-    """Convert a severity string to enum."""
-    try:
-        return Severity[s.upper()]
-    except KeyError:
-        raise ValueError(f"Unknown severity: {s!r}") from None
+def severity_distance(a: str, b: str) -> int:
+    return abs(Severity.from_string(a) - Severity.from_string(b))

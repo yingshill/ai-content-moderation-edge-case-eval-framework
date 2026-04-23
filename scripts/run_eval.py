@@ -76,14 +76,11 @@ def main(config: str, suite: str, policy: str | None, output: str | None, log_le
     from src.eval_runner import load_test_suite, run_eval
     from src.utils.logging import setup_logging
 
-    # Setup logging
     setup_logging(level=log_level)
 
-    # Load config
     with open(config) as f:
         eval_config = yaml.safe_load(f)
 
-    # Build providers
     providers = _build_providers(eval_config)
     if not providers:
         click.echo("Error: No providers enabled in config.", err=True)
@@ -91,11 +88,9 @@ def main(config: str, suite: str, policy: str | None, output: str | None, log_le
 
     click.echo(f"Providers: {', '.join(p.provider_name() for p in providers)}")
 
-    # Load test suite
     test_cases = load_test_suite(suite)
     click.echo(f"Test cases: {len(test_cases)}")
 
-    # Run evaluation
     click.echo("Running evaluation...")
     eval_settings = eval_config.get("evaluation", {})
     max_concurrent = eval_settings.get("max_concurrent", 5)
@@ -105,7 +100,6 @@ def main(config: str, suite: str, policy: str | None, output: str | None, log_le
         run_eval(providers, test_cases, policy, max_concurrent, rubric_path)
     )
 
-    # Output results
     if output is None:
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
         output = f"outputs/eval_{ts}.json"
@@ -139,7 +133,7 @@ def main(config: str, suite: str, policy: str | None, output: str | None, log_le
             "per_category": cm.per_category if cm else {},
         }
 
-    data["agreement"] = {
+    results_data["agreement"] = {
         f"{a}_vs_{b}": kappa for (a, b), kappa in summary.agreement_scores.items()
     }
 
