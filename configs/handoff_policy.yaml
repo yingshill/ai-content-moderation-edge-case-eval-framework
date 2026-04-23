@@ -1,22 +1,45 @@
-# Human-AI handoff policy configuration
+# Human-AI Handoff Policy Configuration
+#
+# Defines when and how the framework determines that a moderation decision
+# should be escalated to a human reviewer.
 
-handoff_triggers:
-  confidence_threshold: 0.7      # escalate if confidence below this
-  severity_escalation:
-    - critical                    # always escalate critical severity
-  annotator_disagreement: 0.5    # escalate if ground truth agreement < this
-  repeat_offender: true          # escalate if author has prior violations
+# Escalation triggers: a case is flagged for human review when ANY of these conditions are met
+triggers:
+  # Content with borderline or critical severity needs review
+  severity_based:
+    - borderline  # Ambiguous cases that need human judgment
+    - critical    # High-stakes cases that need human verification
 
-handoff_context_requirements:
-  - content_snippet
-  - harm_category_prediction
-  - confidence_score
-  - similar_past_decisions
-  - recommended_action
-  - policy_reference
+  # Low annotator agreement indicates genuine ambiguity
+  agreement_threshold: 0.6  # Escalate when agreement < this value
 
-evaluation_criteria:
-  trigger_precision: "% of handoffs that genuinely needed human review"
-  trigger_recall: "% of cases needing human review that were escalated"
-  context_completeness: "% of required context fields populated"
-  reviewer_time_saved: "estimated seconds saved vs reviewing from scratch"
+  # Low confidence from the moderation provider
+  confidence_threshold: 0.5  # Escalate when provider confidence < this value
+
+# Required context for escalation
+# These fields must be present in the escalation context for a complete handoff
+required_context_fields:
+  - content_snippet      # First 200 chars of the content
+  - harm_category_prediction  # The predicted harm category
+  - confidence_score     # Provider's confidence score
+  - recommended_action   # Suggested moderation action
+
+# Optional context fields that improve human review quality
+optional_context_fields:
+  - similar_cases        # Links to similar past decisions
+  - policy_reference     # Relevant platform policy section
+  - cultural_context     # Cultural/linguistic context notes
+  - provider_disagreement  # Whether other providers disagreed
+
+# SLA targets for human review
+sla:
+  target_review_time_minutes: 30
+  max_review_time_minutes: 120
+  escalation_on_timeout: true  # Auto-escalate to senior reviewer on timeout
+
+# Feedback loop
+feedback:
+  # Track human reviewer decisions to improve the model
+  track_overrides: true
+  # Retrain threshold: trigger model retraining when override rate exceeds this
+  retrain_override_threshold: 0.15  # 15% override rate triggers review

@@ -6,29 +6,50 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.eggs/
+*.egg
 
 # Virtual environments
-.venv/
 venv/
-ENV/
+env/
+.venv/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.DS_Store
 
 # Environment variables
 .env
 .env.local
 
-# Outputs
+# Eval outputs (keep sample, ignore real runs)
 outputs/*.json
 outputs/*.md
-outputs/*.html
+!outputs/sample_eval_report.json
+!outputs/sample_eval_report.md
 !outputs/.gitkeep
 
-# OS
-.DS_Store
-Thumbs.db
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# mypy
+.mypy_cache/
+
+# ruff
+.ruff_cache/
+
+# pytest
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Distribution
+*.tar.gz
+*.whl
