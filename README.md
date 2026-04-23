@@ -29,8 +29,8 @@ This framework makes those failures **measurable** and **comparable** across pro
 ### Installation
 
 ```bash
-git clone https://github.com/yingshill/AI-Content-Moderation-Edge-Case-Eval-Framework.git
-cd AI-Content-Moderation-Edge-Case-Eval-Framework
+git clone https://github.com/yingshill/ai-content-moderation-edge-case-eval-framework.git
+cd ai-content-moderation-edge-case-eval-framework
 pip install -e ".[dev]"
 ```
 
