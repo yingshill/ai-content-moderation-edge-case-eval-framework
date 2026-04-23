@@ -1,43 +1,145 @@
-# Contributing
+# Contributing Guide
 
-Thank you for your interest in improving AI content moderation evaluation!
+Thank you for your interest in contributing to the AI Content Moderation Edge-Case Evaluation Framework!
 
-## How to Contribute
+## Development Setup
 
-### Adding Test Cases
+```bash
+# Clone the repository
+git clone https://github.com/yingshill/ai-content-moderation-edge-case-eval-framework.git
+cd ai-content-moderation-edge-case-eval-framework
 
-The most valuable contribution is new edge-case test cases. See `test_suites/README.md` for the authoring guide.
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # or `venv\Scripts\activate` on Windows
 
-1. Fork the repo
-2. Create a branch: `git checkout -b add-test-cases-<suite-name>`
-3. Add test cases to the appropriate `.jsonl` file
-4. Validate against schema: `python -m jsonschema -i <file> test_suites/schema.json`
-5. Open a PR with a description of what edge cases you added and why
+# Install in development mode
+pip install -e ".[dev]"
 
-### Adding Provider Adapters
+# Install pre-commit hooks
+pip install pre-commit
+pre-commit install
+```
 
-1. Create a new file in `src/providers/`
-2. Implement the `ModerationProvider` interface from `base.py`
-3. Add configuration to `configs/eval_config.yaml`
-4. Add tests in `tests/test_providers.py`
+## Code Quality
 
-### Adding Platform Policy Profiles
+### Linting & Formatting
 
-1. Create a YAML file in `policies/`
-2. Follow the schema in `policies/schema.json`
-3. Map platform categories to canonical harm taxonomy
-4. Document any platform-specific context fields
+We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting:
 
-## Code Style
+```bash
+# Check for issues
+ruff check src/ tests/ scripts/
 
-- Python 3.11+
-- Type hints required
-- Format with `ruff format`
-- Lint with `ruff check`
+# Auto-fix issues
+ruff check --fix src/ tests/ scripts/
 
-## Ground Truth Guidelines
+# Format code
+ruff format src/ tests/ scripts/
+```
 
-- Be honest about ambiguity — set realistic `annotator_agreement`
-- Provide detailed `rationale`
-- Test both over-flagging and under-flagging scenarios
-- For culturally sensitive cases, consult with cultural context experts when possible
+### Type Checking
+
+We use [mypy](https://mypy.readthedocs.io/) for static type analysis:
+
+```bash
+mypy src/ --ignore-missing-imports --no-strict-optional
+```
+
+The project includes a `py.typed` marker (PEP 561) for downstream type checking consumers.
+
+### Testing
+
+We use [pytest](https://docs.pytest.org/) with async support:
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_providers.py -v
+
+# Run with coverage (if installed)
+pytest tests/ --cov=src --cov-report=term-missing
+```
+
+**Test categories:**
+- `test_providers.py` — Provider adapter unit tests with mocked API calls
+- `test_scoring.py` — Metrics, calibration, handoff, agreement, rubric tests
+- `test_taxonomy.py` — Category registry and severity validation
+- `test_eval_runner.py` — Test suite loading, metric mapping, explanation quality
+- `test_utils.py` — Logging, retry, rate limiting utilities
+
+### Validate Test Suites
+
+```bash
+python scripts/validate_suites.py
+```
+
+This checks all JSONL files in `test_suites/` for required fields (`id`, `content`, `ground_truth`).
+
+## Project Structure
+
+```
+src/
+  providers/     # Moderation system adapters
+  scoring/       # Metrics, rubric, agreement
+  taxonomy/      # Harm categories, severity levels
+  reporting/     # Report generation (Markdown/JSON)
+  utils/         # Logging, retry, rate limiting
+  eval_runner.py # Main orchestrator
+
+test_suites/     # JSONL test cases
+configs/         # YAML configuration files
+policies/        # Platform policy profiles
+rubrics/         # Scoring rubric definitions
+scripts/         # CLI entry points
+tests/           # Test suite
+docs/            # Documentation
+```
+
+## Adding Content
+
+### New Test Cases
+
+1. Add cases to an existing suite or create a new `.jsonl` file under `test_suites/`.
+2. Follow the ground truth schema in `docs/METHODOLOGY.md`.
+3. Ensure `harm_category` values exist in `src/taxonomy/category_registry.py`.
+4. Run `python scripts/validate_suites.py` to verify.
+
+### New Provider Adapter
+
+1. Create `src/providers/your_provider.py`.
+2. Subclass `ModerationProvider` from `src/providers/base.py`.
+3. Implement `moderate()`, `provider_name()`, and `close()`.
+4. Accept `rate_limit_rpm`, `max_retries`, `backoff_base` in constructor.
+5. Add mock tests in `tests/test_providers.py`.
+6. Wire into `scripts/run_eval.py` and `configs/eval_config.yaml`.
+
+### New Harm Category
+
+1. Add the category to `HARM_CATEGORIES` in `src/taxonomy/category_registry.py`.
+2. Add a regression test in `tests/test_taxonomy.py`.
+3. Update `docs/METHODOLOGY.md` if needed.
+
+## Commit Convention
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add new provider adapter for Llama Guard
+fix: correct ECE bin boundary handling
+test: add mock tests for Perspective provider
+docs: update methodology with action accuracy metric
+chore: update dependencies
+ci: add Python 3.12 to test matrix
+```
+
+## Pull Request Checklist
+
+- [ ] Code passes `ruff check` and `mypy`
+- [ ] Tests pass (`pytest tests/ -v`)
+- [ ] Test suites validate (`python scripts/validate_suites.py`)
+- [ ] New features have corresponding tests
+- [ ] Documentation updated if applicable
+- [ ] CHANGELOG.md updated

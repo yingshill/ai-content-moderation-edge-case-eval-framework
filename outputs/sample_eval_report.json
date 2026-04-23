@@ -1,0 +1,65 @@
+{
+  "run_id": "eval_a1b2c3d4",
+  "timestamp": "2026-04-22T12:00:00+00:00",
+  "config": "configs/eval_config.yaml",
+  "suite": "test_suites/edge_cases/sarcasm_vs_hate.jsonl",
+  "policy": null,
+  "n_test_cases": 10,
+  "providers": {
+    "openai": {
+      "n_results": 10,
+      "macro_f1": 0.723,
+      "micro_f1": 0.800,
+      "calibration_error": 0.142,
+      "action_accuracy": 0.700,
+      "rubric_score": 0.640,
+      "handoff_trigger_rate": 0.400,
+      "handoff_precision": 0.750,
+      "handoff_recall": 0.600,
+      "handoff_context_completeness": 1.000,
+      "per_category": {
+        "harassment": {
+          "precision": 0.800,
+          "recall": 0.667,
+          "f1": 0.727,
+          "support": 6.0
+        },
+        "hate_speech": {
+          "precision": 0.667,
+          "recall": 1.000,
+          "f1": 0.800,
+          "support": 2.0
+        }
+      }
+    },
+    "llm_judge_anthropic_claude-sonnet-4-20250514": {
+      "n_results": 10,
+      "macro_f1": 0.856,
+      "micro_f1": 0.900,
+      "calibration_error": 0.087,
+      "action_accuracy": 0.800,
+      "rubric_score": 0.780,
+      "handoff_trigger_rate": 0.300,
+      "handoff_precision": 1.000,
+      "handoff_recall": 0.600,
+      "handoff_context_completeness": 1.000,
+      "per_category": {
+        "harassment": {
+          "precision": 0.857,
+          "recall": 1.000,
+          "f1": 0.923,
+          "support": 6.0
+        },
+        "hate_speech": {
+          "precision": 1.000,
+          "recall": 0.500,
+          "f1": 0.667,
+          "support": 2.0
+        }
+      }
+    }
+  },
+  "agreement": {
+    "llm_judge_anthropic_claude-sonnet-4-20250514_vs_openai": 0.615
+  }
+}
