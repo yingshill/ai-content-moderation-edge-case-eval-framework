@@ -11,14 +11,18 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..eval_runner import EvalRunSummary
 
+from ..utils.logging import get_logger
+
+logger = get_logger("reporting.generator")
+
 
 def generate_markdown_report(summary: EvalRunSummary, output_path: str | Path) -> None:
     """Generate a Markdown evaluation report."""
     lines: list[str] = []
     lines.append(f"# Evaluation Report: {summary.run_id}")
-    lines.append(f"")
+    lines.append("")
     lines.append(f"**Generated:** {datetime.now(timezone.utc).isoformat()}")
-    lines.append(f"")
+    lines.append("")
 
     for name in summary.provider_results:
         results = summary.provider_results[name]
@@ -29,9 +33,9 @@ def generate_markdown_report(summary: EvalRunSummary, output_path: str | Path) -
         action_acc = summary.action_accuracy.get(name)
 
         lines.append(f"## Provider: {name}")
-        lines.append(f"")
-        lines.append(f"| Metric | Value |")
-        lines.append(f"|--------|-------|")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
         lines.append(f"| Test Cases | {len(results)} |")
         if cm:
             lines.append(f"| Macro F1 | {cm.macro_f1:.3f} |")
@@ -46,31 +50,32 @@ def generate_markdown_report(summary: EvalRunSummary, output_path: str | Path) -
             lines.append(f"| Handoff Precision | {hm.trigger_precision:.3f} |")
             lines.append(f"| Handoff Recall | {hm.trigger_recall:.3f} |")
             lines.append(f"| Context Completeness | {hm.context_completeness:.1%} |")
-        lines.append(f"")
+        lines.append("")
 
         if cm and cm.per_category:
-            lines.append(f"### Per-Category Breakdown")
-            lines.append(f"")
-            lines.append(f"| Category | Precision | Recall | F1 | Support |")
-            lines.append(f"|----------|-----------|--------|-----|---------|")
+            lines.append("### Per-Category Breakdown")
+            lines.append("")
+            lines.append("| Category | Precision | Recall | F1 | Support |")
+            lines.append("|----------|-----------|--------|-----|---------|")
             for cat, metrics in sorted(cm.per_category.items()):
                 lines.append(
                     f"| {cat} | {metrics['precision']:.3f} | "
                     f"{metrics['recall']:.3f} | {metrics['f1']:.3f} | "
                     f"{int(metrics['support'])} |"
                 )
-            lines.append(f"")
+            lines.append("")
 
     if summary.agreement_scores:
-        lines.append(f"## Inter-Provider Agreement")
-        lines.append(f"")
-        lines.append(f"| Provider A | Provider B | Cohen's Kappa |")
-        lines.append(f"|------------|------------|---------------|")
+        lines.append("## Inter-Provider Agreement")
+        lines.append("")
+        lines.append("| Provider A | Provider B | Cohen's Kappa |")
+        lines.append("|------------|------------|---------------|")
         for (a, b), kappa in sorted(summary.agreement_scores.items()):
             lines.append(f"| {a} | {b} | {kappa:.3f} |")
-        lines.append(f"")
+        lines.append("")
 
     Path(output_path).write_text("\n".join(lines))
+    logger.info(f"markdown_report_written path={output_path}")
 
 
 def generate_json_report(summary: EvalRunSummary, output_path: str | Path) -> None:
@@ -97,3 +102,4 @@ def generate_json_report(summary: EvalRunSummary, output_path: str | Path) -> No
     }
 
     Path(output_path).write_text(json.dumps(data, indent=2, default=str))
+    logger.info(f"json_report_written path={output_path}")
