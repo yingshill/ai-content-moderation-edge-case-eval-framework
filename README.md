@@ -238,6 +238,21 @@ See [`test_suites/README.md`](test_suites/README.md) for the full authoring guid
 
 📋 **Phase 4 (Polish)** — CI/CD pipeline, documentation site, PyPI package.
 
+---
+
+## Portfolio Context
+
+This framework emerged from patterns I observed building and operating LLM-assisted moderation systems at [Flip](https://elanaliu.io/ml-pipeline) and [Moody's Analytics](https://elanaliu.io/moderation-os).
+
+The edge-case categories — sarcasm misclassification, cultural idioms, coded language evolution — are the failure modes I watched cause false positives in production queues. The 5-dimension scoring rubric mirrors the evaluation philosophy behind the Safety Index System I designed at Moody's: a single accuracy number hides which specific category is causing the problem.
+
+**Related case studies:**
+- [ML Content Triage Pipeline (Flip)](https://elanaliu.io/ml-pipeline) — ML classifiers automating 65% of Tier-1 content reports; the edge-case gaps this framework measures are what that system hit in production
+- [Moderation OS + Safety Index System (Moody's Analytics)](https://elanaliu.io/moderation-os) — operationalizing LLM-assisted moderation with Precision/Recall/FPR tracking per decision category
+- [Safety Index: AML/KYC Eval Framework](https://elanaliu.io/safety-index) — per-domain threshold calibration for compliance screening
+
+[elanaliu.io](https://elanaliu.io) · [LinkedIn](https://www.linkedin.com/in/yingshi-liu)
+
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
